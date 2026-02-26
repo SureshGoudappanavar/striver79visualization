@@ -35,7 +35,7 @@ export const VISUALIZERS = {
     },
     update(step, nums) {
       const arr = document.getElementById('vArr');
-      arr.innerHTML = nums.map((v,i) => `<div class="cell ${i===step.i?'cur':''} ${v>0?'positive':v<0?'negative':''}" data-i="${i}"><span class="ci">${i}</span>${v}</div>`).join('');
+      arr.innerHTML = step.arr.map((v,i) => `<div class="cell ${i===step.i?'cur':''} ${v>0?'positive':v<0?'negative':''}" data-i="${i}"><span class="ci">${i}</span>${v}</div>`).join('');
       setTBox('tvCur','tCur', step.cur === undefined ? '0' : step.cur);
       setTBox('tvMx','tMx', step.mx === -Infinity ? '-∞' : step.mx);
       addLogLine('vLog', step.note, step.type==='success'?'success':step.done?'highlight':'info');
@@ -76,7 +76,7 @@ export const VISUALIZERS = {
         <div class="trackers">
           <div class="tbox green"><div class="tbox-label">lo</div><div class="tbox-val" id="tvLo">0</div></div>
           <div class="tbox blue"><div class="tbox-label">mid</div><div class="tbox-val" id="tvMid">0</div></div>
-          <div class="tbox pink"><div class="tbox-label">hi</div><div class="tbox-val" id="tvHi">${nums.length-1}</div></div>
+          <div class="tbox pink"><div class="tbox-label">hi</div><div class="tbox-val" id="tvHi">—</div></div>
         </div>
         <div class="step-log" id="vLog"></div>`;
     },
@@ -135,8 +135,8 @@ export const VISUALIZERS = {
         <div class="trackers">
           <div class="tbox green"><div class="tbox-label">lo</div><div class="tbox-val" id="tvLo">0</div></div>
           <div class="tbox blue"><div class="tbox-label">mid</div><div class="tbox-val" id="tvMid">—</div></div>
-          <div class="tbox pink"><div class="tbox-label">hi</div><div class="tbox-val" id="tvHi">${nums.length-1}</div></div>
-          <div class="tbox purple"><div class="tbox-label">target</div><div class="tbox-val" id="tvT">${step.target||13}</div></div>
+          <div class="tbox pink"><div class="tbox-label">hi</div><div class="tbox-val" id="tvHi">—</div></div>
+          <div class="tbox purple"><div class="tbox-label">target</div><div class="tbox-val" id="tvT">—</div></div>
         </div>
         <div class="step-log" id="vLog"></div>`;
     },
@@ -241,19 +241,49 @@ export const VISUALIZERS = {
   reverseLL: {
     title: 'Reverse a Linked List',
     desc: `Use three pointers: <code>prev=null<\/code>, <code>cur<\/code>, <code>next<\/code>. At each step, reverse the link and advance all three pointers.`,
-    init: [1,2,3,4,5],
-    presets: [[1,2,3,4,5],[1,2,3],[5,4,3,2,1]],
+    init: [1,2,3,4],
+    presets: [[1,2,3,4],[1,2,3,4,5],[5,4,3,2,1]],
     run(nums) {
       const steps = [];
-      let prev = -1, cur = 0;
-      steps.push({ nodes:[...nums], prev, cur, next:cur+1, note:`Init: prev=null, cur=head(${nums[0]})`, type:'info' });
+      let prev = null, cur = 0, next = 1;
+      
+      steps.push({ 
+        nodes:[...nums], 
+        prev: null, 
+        cur: 0, 
+        next: 1, 
+        note:`Start: prev=null, cur=${nums[0]}, next=${nums[1]}`, 
+        type:'info' 
+      });
+      
       while (cur < nums.length) {
-        const nxt = cur + 1;
-        steps.push({ nodes:[...nums], prev, cur, next:nxt < nums.length ? nxt : -1, note:`Reverse link: ${cur >= 0 && cur < nums.length ? nums[cur] : 'null'} → ${prev >= 0 ? nums[prev] : 'null'}. Advance pointers.`, type:'info', reversed: cur });
+        next = cur + 1;
+        
+        steps.push({ 
+          nodes:[...nums], 
+          prev: prev, 
+          cur: cur, 
+          next: next < nums.length ? next : null, 
+          note:`Step ${cur+1}: Reverse link from ${nums[cur]} to ${prev !== null ? nums[prev] : 'null'}. Then advance all pointers.`, 
+          type:'info',
+          processedCount: cur + 1
+        });
+        
         prev = cur;
-        cur = nxt;
+        cur = next;
       }
-      steps.push({ nodes:[...nums].reverse(), prev, cur:-1, next:-1, note:`✦ List reversed! New head=${nums[nums.length-1]}`, type:'success', done:true });
+      
+      steps.push({ 
+        nodes:[...nums].reverse(), 
+        prev: nums.length - 1, 
+        cur: null, 
+        next: null, 
+        note:`✦ Done! List reversed: [${[...nums].reverse().join(' → ')}]`, 
+        type:'success', 
+        done:true,
+        processedCount: nums.length
+      });
+      
       return steps;
     },
     render(container, step, nums) {
@@ -268,17 +298,28 @@ export const VISUALIZERS = {
     },
     update(step, nums) {
       const ll = document.getElementById('vLL');
+      if (!ll) return;
+      
       ll.innerHTML = step.nodes.map((v,i) => {
         let cls = '';
-        if (i === step.cur) cls = 'cur';
-        else if (i === step.prev) cls = 'prev-p';
-        else if (i === step.next) cls = 'fast-p';
+        const lbl = [];
+        
+        if (step.prev === i) { cls = 'prev-p'; lbl.push('P'); }
+        if (step.cur === i) { cls = 'cur'; lbl.push('C'); }
+        if (step.next === i) { cls = 'fast-p'; lbl.push('N'); }
+        if (step.processedCount && i < step.processedCount && step.cur !== i) cls = 'sorted';
+        
         const arrow = i < step.nodes.length-1 ? '<span class="ll-arrow">→</span>' : '';
-        return `<div class="ll-node"><div class="ll-box ${cls}">${v}</div></div>${arrow}`;
+        const label = lbl.length > 0 ? `<span class="ll-lbl">${lbl.join(',')}</span>` : '';
+        return `<div class="ll-node"><div class="ll-box ${cls}">${label}${v}</div></div>${arrow}`;
       }).join('');
-      document.getElementById('tvPrev').textContent = step.prev >= 0 ? nums[step.prev] ?? step.nodes[step.prev] : 'null';
-      document.getElementById('tvCur').textContent = step.cur >= 0 ? step.nodes[step.cur] ?? '—' : 'null';
-      document.getElementById('tvNxt').textContent = step.next >= 0 ? step.nodes[step.next] ?? '—' : 'null';
+      
+      const tvPrev = document.getElementById('tvPrev');
+      const tvCur = document.getElementById('tvCur');
+      const tvNxt = document.getElementById('tvNxt');
+      if (tvPrev) tvPrev.textContent = step.prev !== null && step.prev >= 0 ? step.nodes[step.prev] : 'null';
+      if (tvCur) tvCur.textContent = step.cur !== null && step.cur >= 0 ? step.nodes[step.cur] : 'null';
+      if (tvNxt) tvNxt.textContent = step.next !== null && step.next >= 0 ? step.nodes[step.next] : 'null';
       addLogLine('vLog', step.note, step.type==='success'?'success':'info');
     }
   },
@@ -331,47 +372,90 @@ export const VISUALIZERS = {
     title: 'Detect Cycle in Linked List — Floyd\'s Algorithm',
     desc: `Slow moves 1 step, fast moves 2 steps. If there's a cycle, they will eventually meet. If fast reaches null, no cycle exists.`,
     init: [3,2,0,-4],
+    presets: [[3,2,0,-4],[1,2],[1,2,3,4]],
     run(nums) {
       const steps = [];
       const n = nums.length;
       let slow = 0, fast = 0;
-      steps.push({ nodes:[...nums], slow, fast, note:`Init both at head. This list has a cycle (tail connects to index 1).`, type:'info' });
-      for (let t = 0; t < n*2; t++) {
-        fast = (fast + 2) % n;
+      
+      steps.push({ 
+        nodes:[...nums], 
+        slow: 0, 
+        fast: 0, 
+        note:`Start: Both pointers at head (${nums[0]}). Simulating cycle: tail→index 1`, 
+        type:'info',
+        iteration: 0
+      });
+      
+      // Simulate cycle detection - move pointers first, then check
+      let maxSteps = n + 3; // Enough steps to detect cycle
+      for (let t = 1; t <= maxSteps; t++) {
+        // Move slow 1 step
         slow = (slow + 1) % n;
-        steps.push({ nodes:[...nums], slow, fast, note:`slow→${nums[slow]}(idx${slow}), fast→${nums[fast]}(idx${fast})${slow===fast?' — They MET! Cycle detected!':''}`, type: slow===fast?'success':'info' });
-        if (slow === fast) {
-          steps[steps.length-1].done = true;
-          steps[steps.length-1].cycleAt = slow;
+        // Move fast 2 steps
+        fast = (fast + 2) % n;
+        
+        const isMet = slow === fast;
+        
+        steps.push({ 
+          nodes:[...nums], 
+          slow, 
+          fast, 
+          note:`Step ${t}: Slow→${nums[slow]} (idx ${slow}), Fast→${nums[fast]} (idx ${fast})${isMet ? ' ✦ MEET! Cycle detected!' : ''}`, 
+          type: isMet ? 'success' : 'info',
+          iteration: t,
+          cycleAt: isMet ? slow : undefined,
+          done: isMet
+        });
+        
+        if (isMet) {
           break;
         }
       }
+      
       return steps;
     },
-    render(container, step, nums) {
+    render(container) {
       container.innerHTML = `
         <div class="ll-wrap" id="vLL"></div>
-        <div style="font-family:var(--mono);font-size:0.7rem;color:var(--text3);margin:8px 0 12px;text-align:center;">↩ tail connects back to index 1 (simulated cycle)</div>
+        <div style="font-family:var(--mono);font-size:0.7rem;color:var(--text3);margin:8px 0 12px;text-align:center;">↩ Simulated cycle: tail connects back to index 1</div>
         <div class="trackers">
-          <div class="tbox green"><div class="tbox-label">slow</div><div class="tbox-val" id="tvSlow">—</div></div>
-          <div class="tbox pink"><div class="tbox-label">fast</div><div class="tbox-val" id="tvFast">—</div></div>
+          <div class="tbox green"><div class="tbox-label">slow (1×)</div><div class="tbox-val" id="tvSlow">—</div></div>
+          <div class="tbox pink"><div class="tbox-label">fast (2×)</div><div class="tbox-val" id="tvFast">—</div></div>
         </div>
         <div class="step-log" id="vLog"></div>`;
     },
     update(step, nums) {
       const ll = document.getElementById('vLL');
+      if (!ll) return;
+      
       ll.innerHTML = step.nodes.map((v,i) => {
         let cls = '';
-        if (step.cycleAt === i) cls = 'found-cycle';
-        else if (i===step.slow && i===step.fast) cls = 'slow-p';
-        else if (i===step.slow) cls = 'slow-p';
-        else if (i===step.fast) cls = 'fast-p';
+        let lbl = '';
+        
+        if (step.cycleAt === i) {
+          cls = 'found-cycle';
+          lbl = 'MEET';
+        } else if (i === step.slow && i === step.fast) {
+          cls = 'slow-p';
+          lbl = 'S+F';
+        } else if (i === step.slow) {
+          cls = 'slow-p';
+          lbl = 'S';
+        } else if (i === step.fast) {
+          cls = 'fast-p';
+          lbl = 'F';
+        }
+        
         const arrow = i < step.nodes.length-1 ? '<span class="ll-arrow">→</span>' : '<span class="ll-arrow" style="color:var(--red)">↩</span>';
-        const lbl = i===step.slow&&i===step.fast?'S+F':i===step.slow?'S':i===step.fast?'F':'';
-        return `<div class="ll-node"><div class="ll-box ${cls}">${lbl?`<span class="ll-lbl">${lbl}</span>`:''}${v}</div></div>${arrow}`;
+        const label = lbl ? `<span class="ll-lbl">${lbl}</span>` : '';
+        return `<div class="ll-node"><div class="ll-box ${cls}">${label}${v}</div></div>${arrow}`;
       }).join('');
-      document.getElementById('tvSlow').textContent = nums[step.slow];
-      document.getElementById('tvFast').textContent = nums[step.fast];
+      
+      const tvSlow = document.getElementById('tvSlow');
+      const tvFast = document.getElementById('tvFast');
+      if (tvSlow) tvSlow.textContent = step.nodes[step.slow];
+      if (tvFast) tvFast.textContent = step.nodes[step.fast];
       addLogLine('vLog', step.note, step.type==='success'?'success':'info');
     }
   },

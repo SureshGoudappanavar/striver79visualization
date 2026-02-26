@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { VISUALIZERS } from '../data/visualizers'
-import { addLogLine, renderTree, renderGraph } from '../data/helpers'
+import { addLogLine, renderTree, renderGraph, setTBox } from '../data/helpers'
 
 // Expose DOM helpers globally because visualizer code calls them by name
 if (typeof window !== 'undefined') {
   window.addLogLine = addLogLine
   window.renderTree = renderTree
   window.renderGraph = renderGraph
+  window.setTBox = setTBox
 }
 
 export default function VizModal({ problem, onClose }) {
@@ -30,8 +31,8 @@ export default function VizModal({ problem, onClose }) {
     st.step = 0
 
     vizAreaRef.current.innerHTML = ''
-    viz.render(vizAreaRef.current)
-    if (st.steps[0]) viz.update(st.steps[0])
+    viz.render(vizAreaRef.current, st.steps[0], inp)
+    if (st.steps[0]) viz.update(st.steps[0], inp)
     st.step = 1
   }, [viz])
 
@@ -53,7 +54,7 @@ export default function VizModal({ problem, onClose }) {
   const stepOnce = () => {
     const st = stateRef.current
     if (st.step >= st.steps.length) return
-    viz.update(st.steps[st.step])
+    viz.update(st.steps[st.step], st.input)
     st.step++
   }
 
@@ -67,7 +68,7 @@ export default function VizModal({ problem, onClose }) {
         setPlaying(false)
         return
       }
-      viz.update(s.steps[s.step])
+      viz.update(s.steps[s.step], s.input)
       s.step++
     }, spd)
   }, [viz])
